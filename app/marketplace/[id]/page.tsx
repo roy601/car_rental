@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { Navbar } from '@/components/navbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -65,9 +65,10 @@ const VEHICLE_DETAILS: Record<string, any> = {
   },
 }
 
-export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
+export default function VehicleDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [selectedImage, setSelectedImage] = useState(0)
-  const vehicle = VEHICLE_DETAILS[params.id] || VEHICLE_DETAILS['1']
+  const vehicle = VEHICLE_DETAILS[id] || VEHICLE_DETAILS['1']
 
   return (
     <>

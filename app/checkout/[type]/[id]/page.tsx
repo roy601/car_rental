@@ -1,19 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { Navbar } from '@/components/navbar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 
 interface BookingProps {
-  params: {
+  params: Promise<{
     type: 'rent' | 'buy'
     id: string
-  }
+  }>
 }
 
 export default function CheckoutPage({ params }: BookingProps) {
+  const { type, id } = use(params)
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
@@ -24,15 +25,15 @@ export default function CheckoutPage({ params }: BookingProps) {
 
   // Mock vehicle data
   const vehicle = {
-    id: params.id,
+    id: id,
     title: '2023 Tesla Model 3',
     price: 45000,
     dailyRentalPrice: 89,
     image: 'https://images.unsplash.com/photo-1560958089-b8a63019b29c?w=400&h=300&fit=crop',
   }
 
-  const isBuying = params.type === 'buy'
-  const isRenting = params.type === 'rent'
+  const isBuying = type === 'buy'
+  const isRenting = type === 'rent'
 
   // Calculate rental pricing
   const calculatePricing = () => {
@@ -80,7 +81,7 @@ export default function CheckoutPage({ params }: BookingProps) {
     setIsSubmitting(true)
 
     // TODO: Submit booking to backend
-    console.log('[v0] Booking submission:', { type: params.type, vehicleId: params.id, ...formData })
+    console.log('[v0] Booking submission:', { type: type, vehicleId: id, ...formData })
 
     // Simulate API call
     setTimeout(() => {
@@ -97,7 +98,7 @@ export default function CheckoutPage({ params }: BookingProps) {
         <div className="container-max">
           {/* Header */}
           <div className="mb-8">
-            <Link href={`/marketplace/${params.id}`} className="inline-flex items-center gap-2 text-accent hover:text-accent-light mb-6">
+            <Link href={`/marketplace/${id}`} className="inline-flex items-center gap-2 text-accent hover:text-accent-light mb-6">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>

@@ -6,22 +6,31 @@ import { useEffect, useState } from 'react'
 
 export function HeroSection() {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [currentHeroUrl, setCurrentHeroUrl] = useState('/images/hero-car.jpg')
 
   useEffect(() => {
+    // Check for admin-set hero image (Client-only)
+    const customHero = localStorage.getItem('admin_hero_url')
+    if (customHero) {
+      setCurrentHeroUrl(customHero)
+    }
+    
+    const finalUrl = customHero || '/images/hero-car.jpg'
+
     // Preload hero image
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => setImageLoaded(true)
-    img.src = '/images/hero-car.jpg'
+    img.src = finalUrl
   }, [])
 
   return (
     <section className="relative w-full h-screen overflow-hidden pt-20">
       {/* Background Image */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000"
         style={{
-          backgroundImage: `url('/images/hero-car.jpg')`,
+          backgroundImage: `url('${currentHeroUrl}')`,
           backgroundPosition: 'center',
         }}
       >
@@ -31,32 +40,36 @@ export function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
+        <div className="max-w-4xl mx-auto text-center space-y-10">
           {/* Badge */}
-          <div className="inline-block">
-            <span className="badge-accent">The Future of Fleet</span>
+          <div className="inline-block animate-fade-in">
+            <span className="badge-highlight">The Future of Automotive Commerce</span>
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight">
-            <span className="text-balance">
-              Drive. Rent. Buy. All in one place.
+          <h1 className="text-6xl md:text-8xl font-black text-white leading-[0.95] tracking-tighter">
+            Drive. Rent. Buy.<br />
+            <span className="bg-gradient-to-r from-compass via-compass-light to-compass bg-clip-text text-transparent">
+              All in one place.
             </span>
           </h1>
 
           {/* Subheading */}
-          <p className="text-xl md:text-2xl text-white/90 leading-relaxed max-w-2xl mx-auto">
-            Experience the future of automotive commerce. Find your perfect car or earn money renting yours.
+          <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-2xl mx-auto font-medium">
+            Experience the next generation of car marketplaces. Whether you want to browse 3,200+ verified listings or turn your vehicle into an income stream — we’ve got you covered.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-            <Button asChild className="btn-primary px-10 py-6 text-lg">
-              <Link href="/marketplace">
-                Explore Vehicles
+          <div className="flex flex-col sm:flex-row gap-5 justify-center pt-6">
+            <Button asChild className="btn-primary h-14 px-12 text-base group">
+              <Link href="/marketplace" className="flex items-center gap-2">
+                Explore Marketplace
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </Link>
             </Button>
-            <Button asChild className="btn-secondary px-10 py-6 text-lg">
+            <Button asChild className="btn-secondary h-14 px-12 text-base bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20">
               <Link href="/auth/signup?type=seller">
                 List Your Vehicle
               </Link>
@@ -64,18 +77,18 @@ export function HeroSection() {
           </div>
 
           {/* Trust indicators */}
-          <div className="pt-12 grid grid-cols-3 gap-6 text-white/80 text-sm">
-            <div>
-              <div className="text-3xl font-bold">50K+</div>
-              <div>Active Listings</div>
+          <div className="pt-16 grid grid-cols-3 gap-12 text-white/90 border-t border-white/10 max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="text-3xl font-black tracking-tighter">50K+</div>
+              <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Listings</div>
             </div>
-            <div>
-              <div className="text-3xl font-bold">100K+</div>
-              <div>Happy Users</div>
+            <div className="text-center">
+              <div className="text-3xl font-black tracking-tighter">100K+</div>
+              <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Users</div>
             </div>
-            <div>
-              <div className="text-3xl font-bold">$5B+</div>
-              <div>in Transactions</div>
+            <div className="text-center">
+              <div className="text-3xl font-black tracking-tighter">$5B+</div>
+              <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Volume</div>
             </div>
           </div>
         </div>

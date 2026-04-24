@@ -1,67 +1,85 @@
+'use client'
+
+import { Shield, Zap, CreditCard, Star, Truck, Heart } from 'lucide-react'
+
+const features = [
+  {
+    title: 'Verified DNA',
+    description: 'Every vehicle undergoes a 200-point inspection and deep history audit before listing.',
+    icon: Shield,
+    className: 'lg:col-span-2 lg:row-span-2 bg-midnight text-white',
+    accent: 'text-rivian'
+  },
+  {
+    title: 'Instant Escrow',
+    description: 'Payments are held securely in escrow until you take delivery.',
+    icon: CreditCard,
+    className: 'bg-rivian text-white',
+    accent: 'text-compass'
+  },
+  {
+    title: 'Real Reviews',
+    description: 'Trustworthy feedback from our community of verified buyers.',
+    icon: Star,
+    className: 'bg-glacier-white text-midnight',
+    accent: 'text-amber-500'
+  },
+  {
+    title: 'Flexible Logistics',
+    description: 'Home delivery or local pickup. You choose how you get your ride.',
+    icon: Truck,
+    className: 'bg-glacier-white text-midnight',
+    accent: 'text-rivian'
+  },
+  {
+    title: 'Smart Favorites',
+    description: 'Save vehicles and get price drop alerts in real-time.',
+    icon: Heart,
+    className: 'lg:col-span-2 bg-compass text-midnight',
+    accent: 'text-rivian'
+  }
+]
+
 export function FeaturesSection() {
-  const features = [
-    {
-      icon: '🔍',
-      title: 'Intelligent Search',
-      description: 'Filter by price, category, location, and more with our advanced search engine.',
-    },
-    {
-      icon: '✅',
-      title: 'Verified Listings',
-      description: 'All sellers are verified and vehicles are inspected for quality and authenticity.',
-    },
-    {
-      icon: '💳',
-      title: 'Secure Payments',
-      description: 'Protected transactions with escrow service for both buyers and sellers.',
-    },
-    {
-      icon: '⭐',
-      title: 'Ratings & Reviews',
-      description: 'Real feedback from the community to help you make informed decisions.',
-    },
-    {
-      icon: '🚚',
-      title: 'Flexible Delivery',
-      description: 'Options for pickup, delivery, or local pickup with support from our team.',
-    },
-    {
-      icon: '🛡️',
-      title: 'Buyer Protection',
-      description: '30-day satisfaction guarantee and hassle-free returns on most vehicles.',
-    },
-  ]
-
   return (
-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-white overflow-hidden">
       <div className="container-max">
-        <div className="max-w-4xl mx-auto space-y-12">
-          {/* Section Header */}
-          <div className="text-center space-y-4">
-            <h2 className="text-4xl md:text-5xl font-bold text-text-primary">
-              <span className="text-balance">Why Choose AutoFleet Pro?</span>
-            </h2>
-            <p className="text-xl text-text-secondary">
-              The most trusted automotive marketplace with millions of vehicles and happy customers worldwide.
-            </p>
-          </div>
+        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+          <span className="badge-accent">Platform Excellence</span>
+          <h2 className="text-5xl md:text-6xl font-black tracking-tighter text-midnight">
+            Engineered for <br />
+            <span className="text-rivian">Total Confidence.</span>
+          </h2>
+          <p className="text-lg text-text-secondary font-medium">
+            We’ve removed the friction from automotive commerce. From secure payments to verified inspections, every detail is handled.
+          </p>
+        </div>
 
-          {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, idx) => (
-              <div key={idx} className="card hover:shadow-lg transition-shadow">
-                <div className="space-y-4">
-                  <div className="text-5xl">{feature.icon}</div>
-                  <h3 className="text-2xl font-bold text-text-primary">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[240px]">
+          {features.map((feature, i) => (
+            <div
+              key={i}
+              className={`group relative rounded-[32px] p-8 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-black/10 ${feature.className}`}
+            >
+              <div className="relative z-10 h-full flex flex-col justify-between">
+                <div className={`w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-3 ${feature.className.includes('bg-glacier-white') ? 'bg-black/5' : ''}`}>
+                  <feature.icon className={`w-6 h-6 ${feature.accent}`} />
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black tracking-tighter leading-tight">
                     {feature.title}
                   </h3>
-                  <p className="text-text-secondary leading-relaxed">
+                  <p className={`text-sm font-medium leading-relaxed opacity-60`}>
                     {feature.description}
                   </p>
                 </div>
               </div>
-            ))}
-          </div>
+              
+              {/* Decorative Circle */}
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-colors" />
+            </div>
+          ))}
         </div>
       </div>
     </section>

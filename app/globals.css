@@ -58,8 +58,8 @@
   --color-sidebar-border: #E8E8E8;
   --color-sidebar-ring: #004F43;
 
-  --radius: 8px;
-  --font-sans: 'Inter', sans-serif;
+  --radius: 10px;
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 .dark {
@@ -139,23 +139,23 @@
 
 @layer components {
   .btn-primary {
-    @apply rounded-full px-8 py-3 bg-midnight text-white hover:opacity-90 transition-all font-medium;
+    @apply rounded-[10px] px-8 py-3 bg-gradient-to-br from-rivian to-rivian-light text-white hover:shadow-lg hover:shadow-rivian/30 active:scale-[0.98] transition-all font-bold tracking-tight;
   }
 
   .btn-secondary {
-    @apply rounded-full px-8 py-3 border-2 border-midnight text-midnight hover:bg-midnight hover:text-white transition-all font-medium;
+    @apply rounded-[10px] px-8 py-3 bg-white text-midnight border border-border shadow-sm hover:bg-glacier-white active:scale-[0.98] transition-all font-bold tracking-tight;
   }
 
   .btn-accent {
-    @apply rounded-full px-8 py-3 bg-rivian text-white hover:bg-rivian-light transition-all font-medium;
+    @apply rounded-[10px] px-8 py-3 bg-gradient-to-br from-compass to-compass-light text-midnight hover:shadow-lg hover:shadow-compass/30 active:scale-[0.98] transition-all font-bold tracking-tight;
   }
 
   .badge-accent {
-    @apply bg-rivian text-white text-xs uppercase tracking-widest px-2 py-1 rounded;
+    @apply bg-rivian/10 text-rivian text-[10px] font-bold uppercase tracking-[0.15em] px-3 py-1 rounded-full border border-rivian/20;
   }
 
   .badge-highlight {
-    @apply bg-compass text-midnight text-xs uppercase tracking-widest px-2 py-1 rounded;
+    @apply bg-compass/10 text-compass text-[10px] font-bold uppercase tracking-[0.15em] px-3 py-1 rounded-full border border-compass/20;
   }
 
   .card {
