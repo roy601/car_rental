@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { Navbar } from '@/components/navbar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,26 +32,14 @@ import { createClient } from '@/lib/supabase/client'
 
 const CATEGORIES = ['sedan', 'suv', 'truck', 'coupe', 'hatchback', 'convertible', 'van', 'minivan', 'wagon']
 
-export default function NewListingPage() {
+export default function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-
-  useEffect(() => {
-    const checkProfile = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/auth/login'); return }
-      const { data: p } = await supabase.from('users').select('*').eq('id', user.id).single()
-      setProfile(p)
-      setProfileLoading(false)
-    }
-    checkProfile()
-  }, [])
   
   const [formData, setFormData] = useState({
     title: '',
@@ -65,15 +53,47 @@ export default function NewListingPage() {
     listingType: 'sale',
     description: '',
     location: '',
-    numberPlate: '',
-    engineType: '',
-    transmission: '',
-    drivetrain: '',
-    fuelType: '',
-    color: '',
-    mileage: '',
-    condition: 'good',
   })
+
+  useEffect(() => {
+    const fetchVehicle = async () => {
+      try {
+        const supabase = createClient()
+        const { data: vehicle, error } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('id', resolvedParams.id)
+          .single()
+          
+        if (error) throw error
+        
+        setFormData({
+          title: vehicle.title || '',
+          make: vehicle.make || '',
+          model: vehicle.model || '',
+          year: vehicle.year?.toString() || '',
+          category: vehicle.category || '',
+          vin: vehicle.vin || '',
+          price: vehicle.price?.toString() || '',
+          dailyRentalPrice: vehicle.daily_rental_price?.toString() || '',
+          listingType: vehicle.listing_type || 'sale',
+          description: vehicle.description || '',
+          location: vehicle.location || '',
+        })
+        
+        if (vehicle.primary_image_url) {
+           setImagePreview(vehicle.primary_image_url)
+        }
+      } catch (error) {
+        console.error("Failed to load vehicle", error)
+        toast.error("Could not load vehicle details.")
+        router.push('/dashboard')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchVehicle()
+  }, [resolvedParams.id, router])
 
   const handleNext = () => setStep(s => s + 1)
   const handleBack = () => setStep(s => s - 1)
@@ -88,17 +108,17 @@ export default function NewListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setSaving(true)
     
     try {
       const supabase = createClient()
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user) throw new Error("You must be logged in to create a listing")
+      if (userError || !user) throw new Error("You must be logged in to edit a listing")
       
-      let primaryImageUrl = null
+      let primaryImageUrl = imagePreview // keep existing URL if no new file is selected
       
       if (imageFile) {
-        // Upload to a generic 'vehicles' bucket
+        // Upload to 'vehicles' bucket
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Math.random()}.${fileExt}`
         const filePath = `${user.id}/${fileName}`
@@ -109,10 +129,8 @@ export default function NewListingPage() {
           
         if (uploadError) {
           console.error("Storage Error:", uploadError)
-          // If the bucket doesn't exist, we'll gracefully fallback or show a specific message
           if (uploadError.message.toLowerCase().includes('bucket not found') || uploadError.statusCode === '404') {
              toast.error("The 'vehicles' storage bucket does not exist. Image upload skipped.")
-             // Continue without an image
           } else {
              throw new Error("Image upload failed: " + uploadError.message)
           }
@@ -125,8 +143,7 @@ export default function NewListingPage() {
         }
       }
       
-      const { data: insertedData, error: insertError } = await supabase.from('vehicles').insert({
-        seller_id: user.id,
+      const { data: updatedData, error: updateError } = await supabase.from('vehicles').update({
         title: formData.title || `${formData.year} ${formData.make} ${formData.model}`,
         make: formData.make || 'Unknown Make',
         model: formData.model || 'Unknown Model',
@@ -139,68 +156,25 @@ export default function NewListingPage() {
         description: formData.description,
         location: formData.location,
         primary_image_url: primaryImageUrl,
-        status: 'pending_approval',
-        number_plate: formData.numberPlate,
-        engine_type: formData.engineType,
-        transmission: formData.transmission,
-        drivetrain: formData.drivetrain,
-        fuel_type: formData.fuelType,
-        color: formData.color,
-        condition: formData.condition
-      }).select()
+      }).eq('id', resolvedParams.id).select()
       
-      console.log("Insert Result:", insertedData, insertError)
+      if (updateError) throw new Error("Failed to update listing: " + updateError.message)
+      if (!updatedData || updatedData.length === 0) throw new Error("Update succeeded but no data was returned. Check RLS policies.")
       
-      if (insertError) throw new Error("Failed to save listing: " + insertError.message)
-      if (!insertedData || insertedData.length === 0) throw new Error("Insert succeeded but no data was returned. Check RLS policies.")
-      
-      toast.success("Listing submitted for admin approval!")
+      toast.success("Listing updated successfully!")
       router.push('/dashboard')
     } catch (error: any) {
       console.error("Submission error:", error)
       toast.error(error.message || "An error occurred")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  if (profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-glacier-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-rivian animate-spin" />
-      </div>
-    )
-  }
-
-  // Gate: seller not approved
-  if (!profile || profile.verification_status !== 'approved') {
-    return (
-      <div className="min-h-screen bg-glacier-white">
-        <Navbar />
-        <main className="container-max pt-32 pb-20 flex items-center justify-center">
-          <div className="max-w-md w-full card text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto">
-              <ShieldCheck className="w-8 h-8 text-amber-500" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-midnight mb-2">Account Pending Approval</h1>
-              {profile?.verification_status === 'rejected' ? (
-                <p className="text-text-secondary">Your seller application has been rejected. Please contact support for more information.</p>
-              ) : (
-                <p className="text-text-secondary">Your seller account is awaiting admin verification. Once approved, you can list your vehicles on the marketplace.</p>
-              )}
-            </div>
-            <div className="bg-glacier-white rounded-xl p-4 text-left space-y-2">
-              <p className="text-xs font-black uppercase tracking-widest text-text-light">What happens next?</p>
-              <p className="text-sm text-text-secondary">1. Admin reviews your account and profile information</p>
-              <p className="text-sm text-text-secondary">2. You receive approval to list vehicles</p>
-              <p className="text-sm text-text-secondary">3. Each vehicle also requires admin approval before going live</p>
-            </div>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/settings">Complete Your Profile →</Link>
-            </Button>
-          </div>
-        </main>
+         <Loader2 className="w-8 h-8 text-rivian animate-spin" />
       </div>
     )
   }
@@ -214,7 +188,7 @@ export default function NewListingPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h1 className="text-4xl font-black tracking-tighter text-midnight">Create New Listing</h1>
+              <h1 className="text-4xl font-black tracking-tighter text-midnight">Edit Listing</h1>
               <p className="text-text-secondary font-medium italic">Step {step} of 3: {step === 1 ? 'Basic Information' : step === 2 ? 'Details & Media' : 'Review & Publish'}</p>
             </div>
             <Link href="/dashboard" className="text-sm font-bold text-text-light hover:text-rivian transition-colors">
@@ -240,7 +214,7 @@ export default function NewListingPage() {
                     </div>
                     <div>
                       <CardTitle className="text-2xl font-black tracking-tighter">Vehicle Basics</CardTitle>
-                      <CardDescription className="font-medium text-text-light text-sm">Tell us the core details of your vehicle.</CardDescription>
+                      <CardDescription className="font-medium text-text-light text-sm">Update the core details of your vehicle.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -296,30 +270,6 @@ export default function NewListingPage() {
                           </SelectContent>
                        </Select>
                     </div>
-                    <div className="space-y-2">
-                       <Label className="text-xs font-black uppercase tracking-widest text-text-light">Number Plate (Required)</Label>
-                       <Input 
-                         placeholder="e.g. DHAKA-METRO-KA-1234" 
-                         className="h-14 font-bold border-border/50" 
-                         required
-                         value={formData.numberPlate}
-                         onChange={(e) => setFormData({...formData, numberPlate: e.target.value})}
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <Label className="text-xs font-black uppercase tracking-widest text-text-light">Condition</Label>
-                       <Select value={formData.condition} onValueChange={(v) => setFormData({...formData, condition: v})}>
-                          <SelectTrigger className="h-14 font-bold border-border/50 capitalize">
-                             <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                             <SelectItem value="excellent text-emerald-600">Excellent</SelectItem>
-                             <SelectItem value="good">Good</SelectItem>
-                             <SelectItem value="fair">Fair</SelectItem>
-                             <SelectItem value="needs_work">Needs Work</SelectItem>
-                          </SelectContent>
-                       </Select>
-                    </div>
                   </div>
                   <div className="flex justify-end pt-6">
                     <Button type="button" onClick={handleNext} className="btn-primary h-14 px-10 flex items-center gap-2 group">
@@ -340,7 +290,7 @@ export default function NewListingPage() {
                     </div>
                     <div>
                       <CardTitle className="text-2xl font-black tracking-tighter">Details & Media</CardTitle>
-                      <CardDescription className="font-medium text-text-light text-sm">Set your price, location, and add photos.</CardDescription>
+                      <CardDescription className="font-medium text-text-light text-sm">Update your price, location, and photos.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -362,7 +312,7 @@ export default function NewListingPage() {
                       
                       {['sale', 'both'].includes(formData.listingType) && (
                         <div className="space-y-2">
-                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">Purchase Price ($)</Label>
+                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">Purchase Price (৳)</Label>
                           <Input 
                             type="number"
                             placeholder="e.g. 45000" 
@@ -375,7 +325,7 @@ export default function NewListingPage() {
 
                       {['rent', 'both'].includes(formData.listingType) && (
                         <div className="space-y-2">
-                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">Daily Rental Price ($)</Label>
+                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">Daily Rental Price (৳)</Label>
                           <Input 
                             type="number"
                             placeholder="e.g. 89" 
@@ -393,68 +343,6 @@ export default function NewListingPage() {
                           className="h-14 font-bold border-border/50" 
                           value={formData.location}
                           onChange={(e) => setFormData({...formData, location: e.target.value})}
-                        />
-                      </div>
-
-                      {/* Technical Specs */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Engine</Label>
-                        <Input 
-                          placeholder="e.g. 2.0L Turbo I4" 
-                          className="h-14 font-bold border-border/50" 
-                          required
-                          value={formData.engineType}
-                          onChange={(e) => setFormData({...formData, engineType: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Transmission</Label>
-                        <Input 
-                          placeholder="e.g. 8-Speed Automatic" 
-                          className="h-14 font-bold border-border/50" 
-                          required
-                          value={formData.transmission}
-                          onChange={(e) => setFormData({...formData, transmission: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Drivetrain</Label>
-                        <Input 
-                          placeholder="e.g. AWD" 
-                          className="h-14 font-bold border-border/50" 
-                          required
-                          value={formData.drivetrain}
-                          onChange={(e) => setFormData({...formData, drivetrain: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Fuel Type</Label>
-                        <Input 
-                          placeholder="e.g. Premium Unleaded" 
-                          className="h-14 font-bold border-border/50" 
-                          required
-                          value={formData.fuelType}
-                          onChange={(e) => setFormData({...formData, fuelType: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Color</Label>
-                        <Input 
-                          placeholder="e.g. Obsidian Black" 
-                          className="h-14 font-bold border-border/50" 
-                          required
-                          value={formData.color}
-                          onChange={(e) => setFormData({...formData, color: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Mileage (Optional)</Label>
-                        <Input 
-                          type="number"
-                          placeholder="e.g. 15000" 
-                          className="h-14 font-bold border-border/50" 
-                          value={formData.mileage}
-                          onChange={(e) => setFormData({...formData, mileage: e.target.value})}
                         />
                       </div>
                       
@@ -505,7 +393,7 @@ export default function NewListingPage() {
                       Back
                     </Button>
                     <Button type="button" onClick={handleNext} className="btn-primary h-14 px-10 flex items-center gap-2 group">
-                      Review Listing
+                      Review Changes
                       <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                     </Button>
                   </div>
@@ -521,8 +409,8 @@ export default function NewListingPage() {
                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                      <CardTitle className="text-2xl font-black tracking-tighter">Ready to Launch?</CardTitle>
-                      <CardDescription className="font-medium text-text-light text-sm">Review your details before going live.</CardDescription>
+                      <CardTitle className="text-2xl font-black tracking-tighter">Ready to Save?</CardTitle>
+                      <CardDescription className="font-medium text-text-light text-sm">Review your updated details before going live.</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -551,30 +439,20 @@ export default function NewListingPage() {
                       </div>
                    </div>
 
-                   <div className="flex items-start gap-4 bg-amber-50 rounded-2xl p-6 border border-amber-100">
-                      <ShieldCheck className="w-6 h-6 text-amber-600 flex-shrink-0" />
-                      <div>
-                         <p className="text-sm font-bold text-amber-900">Final Verification</p>
-                         <p className="text-xs text-amber-700 font-medium leading-relaxed mt-1">
-                            By publishing, you confirm that all details are accurate and you possess the legal rights to sell or rent this vehicle.
-                         </p>
-                      </div>
-                   </div>
-
                    <div className="flex justify-between pt-6">
-                    <Button type="button" onClick={handleBack} variant="outline" className="h-14 px-10 flex items-center gap-2 group" disabled={loading}>
+                    <Button type="button" onClick={handleBack} variant="outline" className="h-14 px-10 flex items-center gap-2 group" disabled={saving}>
                       <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
                       Back to Edit
                     </Button>
-                    <Button type="submit" disabled={loading} className="btn-primary h-14 px-10 flex items-center gap-2 group">
-                      {loading ? (
+                    <Button type="submit" disabled={saving} className="btn-primary h-14 px-10 flex items-center gap-2 group">
+                      {saving ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Publishing...
+                          Saving...
                         </>
                       ) : (
                         <>
-                          Publish Listing Now
+                          Save Changes Now
                           <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                         </>
                       )}

@@ -1,126 +1,34 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Navbar } from '@/components/navbar'
 import { VehicleCard } from '@/components/vehicle-card'
-import { Search, X, Car, SlidersHorizontal } from 'lucide-react'
+import { Search, X, Car, SlidersHorizontal, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
-const MOCK_VEHICLES = [
-  {
-    id: '1',
-    title: '2023 Tesla Model 3',
-    price: 45000,
-    dailyRentalPrice: 89,
-    imageUrl: 'https://images.unsplash.com/photo-1560958089-b8a63019b29c?w=600&h=400&fit=crop',
-    category: 'sedan',
-    year: 2023,
-    mileage: 5000,
-    location: 'San Francisco, CA',
-    listingType: 'both' as const,
-    rating: 4.8,
-  },
-  {
-    id: '2',
-    title: '2022 Rivian R1T',
-    price: 75000,
-    dailyRentalPrice: 149,
-    imageUrl: 'https://images.unsplash.com/photo-1618146267230-a87ad5ad5e6e?w=600&h=400&fit=crop',
-    category: 'truck',
-    year: 2022,
-    mileage: 8000,
-    location: 'Los Angeles, CA',
-    listingType: 'both' as const,
-    rating: 4.9,
-  },
-  {
-    id: '3',
-    title: '2024 BMW M440i',
-    price: 68000,
-    dailyRentalPrice: 125,
-    imageUrl: 'https://images.unsplash.com/photo-1552820728-8ac41f1ce891?w=600&h=400&fit=crop',
-    category: 'coupe',
-    year: 2024,
-    mileage: 2000,
-    location: 'New York, NY',
-    listingType: 'sale' as const,
-    rating: 4.7,
-  },
-  {
-    id: '4',
-    title: '2023 Toyota Highlander',
-    price: 38000,
-    dailyRentalPrice: 75,
-    imageUrl: 'https://images.unsplash.com/photo-1533473359331-35b0c54178aa?w=600&h=400&fit=crop',
-    category: 'suv',
-    year: 2023,
-    mileage: 12000,
-    location: 'Austin, TX',
-    listingType: 'both' as const,
-    rating: 4.6,
-  },
-  {
-    id: '5',
-    title: '2021 Mercedes-Benz GLE',
-    price: 58000,
-    dailyRentalPrice: 110,
-    imageUrl: 'https://images.unsplash.com/photo-1569552346869-2f03b55541d0?w=600&h=400&fit=crop',
-    category: 'suv',
-    year: 2021,
-    mileage: 25000,
-    location: 'Miami, FL',
-    listingType: 'sale' as const,
-    rating: 4.5,
-  },
-  {
-    id: '6',
-    title: '2023 Porsche 911',
-    price: 98000,
-    dailyRentalPrice: 250,
-    imageUrl: 'https://images.unsplash.com/photo-1514162545848-a24eaf1d2641?w=600&h=400&fit=crop',
-    category: 'coupe',
-    year: 2023,
-    mileage: 3000,
-    location: 'Beverly Hills, CA',
-    listingType: 'rent' as const,
-    rating: 4.9,
-  },
-  {
-    id: '7',
-    title: '2022 Honda Civic',
-    price: 28000,
-    dailyRentalPrice: 55,
-    imageUrl: 'https://images.unsplash.com/photo-1590890255295-4d9d53a69ee8?w=600&h=400&fit=crop',
-    category: 'sedan',
-    year: 2022,
-    mileage: 18000,
-    location: 'Seattle, WA',
-    listingType: 'both' as const,
-    rating: 4.4,
-  },
-  {
-    id: '8',
-    title: '2023 Range Rover',
-    price: 85000,
-    dailyRentalPrice: 180,
-    imageUrl: 'https://images.unsplash.com/photo-1606611013016-969c19f27081?w=600&h=400&fit=crop',
-    category: 'suv',
-    year: 2023,
-    mileage: 6000,
-    location: 'Denver, CO',
-    listingType: 'both' as const,
-    rating: 4.8,
-  },
-]
+type VehicleType = {
+  id: string
+  title: string
+  price: number
+  dailyRentalPrice: number
+  imageUrl: string
+  category: string
+  year: number
+  mileage: number
+  location: string
+  listingType: 'sale' | 'rent' | 'both'
+  rating?: number
+}
 
 const CATEGORIES = ['sedan', 'suv', 'truck', 'coupe', 'hatchback', 'convertible', 'van'] as const
 
 const PRICE_RANGES = [
   { label: 'Any price', min: 0, max: Infinity },
-  { label: 'Under $30K', min: 0, max: 30000 },
-  { label: '$30K – $50K', min: 30000, max: 50000 },
-  { label: '$50K – $75K', min: 50000, max: 75000 },
-  { label: '$75K+', min: 75000, max: Infinity },
+  { label: 'Under ৳30K', min: 0, max: 30000 },
+  { label: '৳30K – ৳50K', min: 30000, max: 50000 },
+  { label: '৳50K – ৳75K', min: 50000, max: 75000 },
+  { label: '৳75K+', min: 75000, max: Infinity },
 ]
 
 type ListingMode = 'all' | 'rent' | 'buy'
@@ -133,6 +41,38 @@ export default function MarketplacePage() {
   const [priceRange, setPriceRange] = useState({ min: 0, max: Infinity })
   const [sortBy, setSortBy] = useState<SortKey>('newest')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [vehicles, setVehicles] = useState<VehicleType[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      setIsLoading(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('status', 'active')
+      
+      if (!error && data) {
+        setVehicles(data.map(v => ({
+          id: v.id,
+          title: v.title || `${v.year} ${v.make} ${v.model}`,
+          price: v.price || 0,
+          dailyRentalPrice: v.daily_rental_price || 0,
+          imageUrl: v.primary_image_url || v.image_urls?.[0] || 'https://images.unsplash.com/photo-1560958089-b8a63019b29c?w=600&h=400&fit=crop',
+          category: v.category || 'sedan',
+          year: v.year || new Date().getFullYear(),
+          mileage: v.mileage || 0,
+          location: v.location || 'Unknown location',
+          listingType: v.listing_type as any || 'both',
+          rating: 4.5, // Mock rating or calculate from reviews later
+        })))
+      }
+      setIsLoading(false)
+    }
+
+    fetchVehicles()
+  }, [])
 
   const toggleCategory = (cat: string) =>
     setSelectedCategories(prev =>
@@ -152,7 +92,7 @@ export default function MarketplacePage() {
   }
 
   const filteredVehicles = useMemo(() => {
-    let result = MOCK_VEHICLES
+    let result = vehicles
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -181,7 +121,7 @@ export default function MarketplacePage() {
         default:           return 0
       }
     })
-  }, [searchQuery, selectedCategories, listingMode, priceRange, sortBy])
+  }, [vehicles, searchQuery, selectedCategories, listingMode, priceRange, sortBy])
 
   const FilterPanel = () => (
     <div className="space-y-7">
@@ -279,7 +219,7 @@ export default function MarketplacePage() {
         <section className="bg-midnight pt-20">
           <div className="container-max py-10 md:py-14">
             <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-rivian mb-3">
-              {MOCK_VEHICLES.length} vehicles available
+              {vehicles.length} vehicles available
             </p>
             <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-7">
               Find your next vehicle
@@ -389,7 +329,12 @@ export default function MarketplacePage() {
               </div>
 
               {/* Vehicle grid */}
-              {filteredVehicles.length > 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <Loader2 className="w-8 h-8 text-rivian animate-spin mb-4" />
+                  <h3 className="font-semibold text-text-primary mb-1.5">Loading vehicles...</h3>
+                </div>
+              ) : filteredVehicles.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                   {filteredVehicles.map(vehicle => (
                     <VehicleCard key={vehicle.id} {...vehicle} />

@@ -3,22 +3,44 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Shield, Zap, Info } from 'lucide-react'
+import { Search, Shield, Zap, Info, Car, Settings2, Calendar, MapPin, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 export function VINSearch() {
   const [vin, setVin] = useState('')
   const [loading, setLoading] = useState(false)
+  const [decodedData, setDecodedData] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!vin) return
+    if (!vin) {
+      toast.error("Please enter a VIN")
+      return
+    }
     
     setLoading(true)
-    setTimeout(() => {
+    try {
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`)
+      const data = await res.json()
+      
+      if (data && data.Results && data.Results.length > 0) {
+        const result = data.Results[0]
+        if (!result.Make && !result.Model) {
+           toast.error("Invalid VIN or no manufacturer data found")
+           return
+        }
+        setDecodedData(result)
+        setIsModalOpen(true)
+      } else {
+        toast.error("No data found for this VIN")
+      }
+    } catch (err) {
+      toast.error("Failed to decode VIN. Please try again.")
+    } finally {
       setLoading(false)
-      toast.info("Vehicle data fetched! Redirecting to listing...")
-    }, 1500)
+    }
   }
 
   return (
@@ -127,6 +149,80 @@ export function VINSearch() {
           </div>
         </div>
       </div>
+
+      {/* Results Dialog */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl bg-white border-none shadow-2xl rounded-3xl overflow-hidden p-0">
+          <div className="bg-midnight p-8 text-white">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="bg-rivian/20 text-rivian text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-rivian/30">
+                  NHTSA Certified
+                </span>
+                <span className="text-white/40 text-xs font-mono">{vin.toUpperCase()}</span>
+              </div>
+              <DialogTitle className="text-3xl font-black tracking-tighter">
+                {decodedData?.ModelYear} {decodedData?.Make} {decodedData?.Model}
+              </DialogTitle>
+              <DialogDescription className="text-white/60 text-base mt-2">
+                Official manufacturer specifications decoded from vehicle identification number.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          {decodedData && (
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 bg-glacier-white">
+              <div className="space-y-6">
+                <div className="flex items-start gap-4 bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                    <Car className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-light mb-1">Body & Trim</p>
+                    <p className="font-bold text-midnight">{decodedData.BodyClass || 'N/A'}</p>
+                    <p className="text-sm text-text-secondary mt-0.5">{decodedData.Trim || 'Standard Trim'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                    <Settings2 className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-light mb-1">Drivetrain</p>
+                    <p className="font-bold text-midnight">{decodedData.DriveType || 'N/A'}</p>
+                    <p className="text-sm text-text-secondary mt-0.5">{decodedData.TransmissionStyle || 'Auto'} • {decodedData.FuelTypePrimary || 'Gas'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-start gap-4 bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-light mb-1">Engine Specs</p>
+                    <p className="font-bold text-midnight">{decodedData.EngineCylinders ? `${decodedData.EngineCylinders} Cylinders` : 'N/A'}</p>
+                    <p className="text-sm text-text-secondary mt-0.5">{decodedData.DisplacementL ? `${decodedData.DisplacementL}L` : ''} {decodedData.EngineHP ? `• ${decodedData.EngineHP} HP` : ''}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-light mb-1">Manufacturing</p>
+                    <p className="font-bold text-midnight">{decodedData.Manufacturer || 'N/A'}</p>
+                    <p className="text-sm text-text-secondary mt-0.5">{decodedData.PlantCity ? `${decodedData.PlantCity}, ` : ''}{decodedData.PlantCountry || ''}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

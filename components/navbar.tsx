@@ -5,10 +5,13 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { MessageSquare } from 'lucide-react'
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [userType, setUserType] = useState<string | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -34,6 +37,25 @@ export function Navbar() {
         data: { user },
       } = await supabase.auth.getUser()
       setUser(user)
+
+      if (user) {
+        // Fetch unread message count
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('receiver_id', user.id)
+          .eq('is_read', false)
+        setUnreadCount(count || 0)
+
+        // Fetch user type
+        const { data: profile } = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile) setUserType(profile.user_type)
+      }
     }
 
     getUser()
@@ -77,30 +99,62 @@ export function Navbar() {
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-10">
-          {['Marketplace', 'How It Works', 'Features'].map((item) => (
-            <Link
-              key={item}
-              href={`/${item.toLowerCase().replace(/ /g, '-')}`}
-              className={`text-[13px] font-bold uppercase tracking-widest transition-all hover:scale-105 ${
-                forceDarkText ? 'text-midnight/70 hover:text-rivian' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              {item}
-            </Link>
-          ))}
+          <Link
+            href="/marketplace"
+            className={`text-[13px] font-bold uppercase tracking-widest transition-all hover:scale-105 ${
+              forceDarkText ? 'text-midnight/70 hover:text-rivian' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Marketplace
+          </Link>
+          <Link
+            href="/#featured"
+            className={`text-[13px] font-bold uppercase tracking-widest transition-all hover:scale-105 ${
+              forceDarkText ? 'text-midnight/70 hover:text-rivian' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Featured Cars
+          </Link>
+          <Link
+            href="/#top-sellers"
+            className={`text-[13px] font-bold uppercase tracking-widest transition-all hover:scale-105 ${
+              forceDarkText ? 'text-midnight/70 hover:text-rivian' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            Top Sellers
+          </Link>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              {/* Messages icon with unread badge */}
+              <Link href="/messages" className="relative p-2 rounded-xl transition-colors hover:bg-black/5">
+                <MessageSquare className={`w-5 h-5 ${forceDarkText ? 'text-midnight/70' : 'text-white/80'}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rivian text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+              {userType !== 'admin' && (
+                <Link 
+                  href="/my-bookings" 
+                  className={`text-[13px] font-bold uppercase tracking-widest px-4 py-2 rounded-lg transition-colors ${
+                    forceDarkText ? 'text-midnight/70 hover:bg-black/5' : 'text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  My Bookings
+                </Link>
+              )}
               <Link 
-                href={user.user_metadata?.role === 'admin' ? '/admin' : '/dashboard'} 
+                href={userType === 'admin' ? '/admin' : '/dashboard'} 
                 className={`text-[13px] font-bold uppercase tracking-widest px-4 py-2 rounded-lg transition-colors ${
                   forceDarkText ? 'text-midnight/70 hover:bg-black/5' : 'text-white/80 hover:bg-white/10'
                 }`}
               >
-                Dashboard
+                {userType === 'admin' ? 'Admin Panel' : 'Dashboard'}
               </Link>
               <Button onClick={handleSignOut} className="btn-primary h-10 px-6">
                 Sign Out

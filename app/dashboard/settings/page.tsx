@@ -18,22 +18,52 @@ import {
   Save,
   Mail,
   Phone,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  
+  // Form State
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [bkashNumber, setBkashNumber] = useState('')
+  const [nagadNumber, setNagadNumber] = useState('')
+  
   const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error || !user) throw error
+        
+        setUser(user)
+        
+        const { data: dbProfile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+          
+        if (dbProfile) {
+           setProfile(dbProfile)
+           setFullName(dbProfile.full_name || user.user_metadata?.full_name || '')
+           setPhone(dbProfile.phone || '')
+           setBkashNumber(dbProfile.bkash_number || '')
+           setNagadNumber(dbProfile.nagad_number || '')
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
     getUser()
   }, [])
@@ -41,13 +71,43 @@ export default function SettingsPage() {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setUpdating(true)
-    setTimeout(() => {
-      setUpdating(false)
+    
+    try {
+      // Update public.users table
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({
+          full_name: fullName,
+          phone: phone,
+          bkash_number: bkashNumber,
+          nagad_number: nagadNumber
+        })
+        .eq('id', user.id)
+        
+      if (dbError) throw new Error("Failed to update database record: " + dbError.message)
+      
+      // Update auth.users metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: fullName }
+      })
+      
+      if (authError) throw new Error("Failed to update authentication profile: " + authError.message)
+      
       toast.success("Profile updated successfully!")
-    }, 1500)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setUpdating(false)
+    }
   }
 
-  if (loading) return null
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-glacier-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-rivian animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-glacier-white">
@@ -66,25 +126,41 @@ export default function SettingsPage() {
           </div>
 
           <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList className="bg-white p-1 h-auto rounded-xl border border-border shadow-sm">
-              <TabsTrigger value="profile" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white">
-                <User className="w-4 h-4 mr-2" />
+            <TabsList className="bg-white p-1 h-auto rounded-xl border border-border shadow-sm flex-wrap">
+              <TabsTrigger value="profile" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white flex-1 sm:flex-none">
+                <User className="w-4 h-4 mr-2 hidden sm:block" />
                 Profile Info
               </TabsTrigger>
-              <TabsTrigger value="security" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white">
-                <Lock className="w-4 h-4 mr-2" />
+              <TabsTrigger value="security" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white flex-1 sm:flex-none">
+                <Lock className="w-4 h-4 mr-2 hidden sm:block" />
                 Security
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white">
-                <Bell className="w-4 h-4 mr-2" />
+              <TabsTrigger value="notifications" className="px-6 py-2.5 rounded-lg data-[state=active]:bg-rivian data-[state=active]:text-white flex-1 sm:flex-none">
+                <Bell className="w-4 h-4 mr-2 hidden sm:block" />
                 Notifications
               </TabsTrigger>
             </TabsList>
 
             {/* PROFILE TAB */}
-            <TabsContent value="profile" className="space-y-8">
+            <TabsContent value="profile" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+              
+              {/* Pending Approval Notice */}
+              {profile?.user_type === 'seller' && profile?.verification_status === 'pending' && (
+                <div className="flex items-start gap-4 bg-amber-50 border border-amber-100 rounded-2xl p-5 mb-8">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Shield className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-midnight font-black tracking-tight text-lg">Seller Account Pending Approval</h3>
+                    <p className="text-amber-700 text-sm mt-1">
+                      To get approved by the admin, you MUST fill out all the mandatory fields below (Full Name, Phone, bKash, and Nagad) and save your profile. The admin will review this information before approving your account.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleUpdateProfile}>
-                <Card className="border-none shadow-2xl shadow-black/5 bg-white p-8">
+                <Card className="border-none shadow-2xl shadow-black/5 bg-white p-4 sm:p-8">
                   <CardHeader className="px-0 pt-0 pb-8 border-b border-border/50 mb-8">
                      <CardTitle className="text-2xl font-black tracking-tighter">Public Profile</CardTitle>
                      <CardDescription className="font-medium text-text-light">This information will be visible on your listings.</CardDescription>
@@ -99,14 +175,16 @@ export default function SettingsPage() {
                                className="w-full h-full object-cover"
                              />
                           </div>
-                          <button className="absolute -bottom-2 -right-2 w-10 h-10 rounded-xl bg-midnight text-white flex items-center justify-center border-4 border-white hover:bg-rivian transition-colors shadow-lg">
+                          <button type="button" className="absolute -bottom-2 -right-2 w-10 h-10 rounded-xl bg-midnight text-white flex items-center justify-center border-4 border-white hover:bg-rivian transition-colors shadow-lg">
                              <Camera className="w-4 h-4" />
                           </button>
                        </div>
                        <div className="space-y-1 text-center md:text-left">
-                          <h4 className="text-xl font-black text-midnight">{user?.user_metadata?.full_name || 'Your Name'}</h4>
+                          <h4 className="text-xl font-black text-midnight">{fullName || 'Your Name'}</h4>
                           <p className="text-sm font-medium text-text-light">{user?.email}</p>
-                          <Badge variant="outline" className="mt-2 bg-emerald-50 text-emerald-600 border-emerald-100">Verified Seller</Badge>
+                          {profile?.is_verified && (
+                             <Badge variant="outline" className="mt-2 bg-emerald-50 text-emerald-600 border-emerald-100">Verified Seller</Badge>
+                          )}
                        </div>
                     </div>
 
@@ -116,7 +194,10 @@ export default function SettingsPage() {
                           <div className="relative">
                              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
                              <Input 
-                               defaultValue={user?.user_metadata?.full_name} 
+                               value={fullName}
+                               onChange={(e) => setFullName(e.target.value)}
+                               placeholder="e.g. John Doe"
+                               required
                                className="h-14 pl-12 font-bold border-border/50" 
                              />
                           </div>
@@ -126,8 +207,37 @@ export default function SettingsPage() {
                           <div className="relative">
                              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
                              <Input 
+                               value={phone}
+                               onChange={(e) => setPhone(e.target.value)}
                                placeholder="+1 (555) 000-0000" 
+                               required
                                className="h-14 pl-12 font-bold border-border/50" 
+                             />
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">bKash Number</Label>
+                          <div className="relative">
+                             <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-text-light text-xs">bKash</div>
+                             <Input 
+                               value={bkashNumber}
+                               onChange={(e) => setBkashNumber(e.target.value)}
+                               placeholder="017xxxxxxxx" 
+                               required
+                               className="h-14 pl-16 font-bold border-border/50" 
+                             />
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <Label className="text-xs font-black uppercase tracking-widest text-text-light">Nagad Number</Label>
+                          <div className="relative">
+                             <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-text-light text-xs">Nagad</div>
+                             <Input 
+                               value={nagadNumber}
+                               onChange={(e) => setNagadNumber(e.target.value)}
+                               placeholder="017xxxxxxxx" 
+                               required
+                               className="h-14 pl-16 font-bold border-border/50" 
                              />
                           </div>
                        </div>
@@ -138,7 +248,7 @@ export default function SettingsPage() {
                              <Input 
                                value={user?.email} 
                                disabled 
-                               className="h-14 pl-12 font-bold bg-glacier-white border-border/50" 
+                               className="h-14 pl-12 font-bold bg-glacier-white border-border/50 opacity-70" 
                              />
                           </div>
                           <p className="text-[10px] font-bold text-text-light italic mt-1">To change your email, please contact support.</p>
@@ -147,8 +257,17 @@ export default function SettingsPage() {
 
                     <div className="flex justify-end pt-6">
                        <Button type="submit" disabled={updating} className="btn-primary h-14 px-12 flex items-center gap-2">
-                          <Save className="w-5 h-5" />
-                          {updating ? 'Saving...' : 'Save Profile Changes'}
+                          {updating ? (
+                            <>
+                               <Loader2 className="w-5 h-5 animate-spin" />
+                               Saving...
+                            </>
+                          ) : (
+                            <>
+                               <Save className="w-5 h-5" />
+                               Save Profile Changes
+                            </>
+                          )}
                        </Button>
                     </div>
                   </CardContent>
@@ -157,8 +276,8 @@ export default function SettingsPage() {
             </TabsContent>
 
             {/* SECURITY TAB */}
-            <TabsContent value="security" className="space-y-8">
-               <Card className="border-none shadow-2xl shadow-black/5 bg-white p-8">
+            <TabsContent value="security" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+               <Card className="border-none shadow-2xl shadow-black/5 bg-white p-4 sm:p-8">
                   <CardHeader className="px-0 pt-0 pb-8 border-b border-border/50 mb-8">
                      <CardTitle className="text-2xl font-black tracking-tighter">Login & Security</CardTitle>
                      <CardDescription className="font-medium text-text-light">Update your password and protect your account.</CardDescription>
@@ -181,9 +300,9 @@ export default function SettingsPage() {
                         </div>
                      </div>
 
-                     <div className="p-6 rounded-2xl bg-midnight text-white flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                     <div className="p-6 rounded-2xl bg-midnight text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 text-center sm:text-left">
+                           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
                               <Shield className="w-5 h-5 text-rivian" />
                            </div>
                            <div>
@@ -191,19 +310,19 @@ export default function SettingsPage() {
                               <p className="text-xs text-white/40">Add an extra layer of security to your account.</p>
                            </div>
                         </div>
-                        <Button variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10">Enable 2FA</Button>
+                        <Button variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10 w-full sm:w-auto">Enable 2FA</Button>
                      </div>
 
                      <div className="flex justify-end pt-6">
-                        <Button className="btn-primary h-14 px-12">Update Password</Button>
+                        <Button className="btn-primary h-14 px-12" onClick={() => toast.info("Password update coming soon")}>Update Password</Button>
                      </div>
                   </CardContent>
                </Card>
             </TabsContent>
 
             {/* NOTIFICATIONS TAB */}
-            <TabsContent value="notifications" className="space-y-8">
-               <Card className="border-none shadow-2xl shadow-black/5 bg-white p-8">
+            <TabsContent value="notifications" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+               <Card className="border-none shadow-2xl shadow-black/5 bg-white p-4 sm:p-8">
                   <CardHeader className="px-0 pt-0 pb-8 border-b border-border/50 mb-8">
                      <CardTitle className="text-2xl font-black tracking-tighter">Notifications</CardTitle>
                      <CardDescription className="font-medium text-text-light">Choose how and when you want to be notified.</CardDescription>
@@ -215,12 +334,12 @@ export default function SettingsPage() {
                         { title: 'System Updates', desc: 'Stay informed about platform changes and new features.' },
                         { title: 'Marketing Emails', desc: 'Periodic tips on how to increase your sales and rentals.' }
                      ].map((item, i) => (
-                        <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-border/50 hover:bg-glacier-white transition-colors">
+                        <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-border/50 hover:bg-glacier-white transition-colors gap-4">
                            <div>
                               <p className="font-bold text-midnight">{item.title}</p>
                               <p className="text-xs text-text-light font-medium">{item.desc}</p>
                            </div>
-                           <div className="w-12 h-6 bg-rivian rounded-full relative cursor-pointer">
+                           <div className="w-12 h-6 bg-rivian rounded-full relative cursor-pointer flex-shrink-0" onClick={() => toast.success("Preferences updated")}>
                               <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
                            </div>
                         </div>

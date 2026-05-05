@@ -4,25 +4,29 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-export function HeroSection() {
+interface HeroStats {
+  listings: number
+  users: number
+  volume: number
+}
+
+function formatNumber(num: number) {
+  if (num >= 1e9) return (num / 1e9).toFixed(1).replace(/\.0$/, '') + 'B+'
+  if (num >= 1e6) return (num / 1e6).toFixed(1).replace(/\.0$/, '') + 'M+'
+  if (num >= 1e3) return (num / 1e3).toFixed(1).replace(/\.0$/, '') + 'K+'
+  return num.toString() + '+'
+}
+
+export function HeroSection({ stats, heroUrl = '/images/hero-car.jpg' }: { stats?: HeroStats, heroUrl?: string }) {
   const [imageLoaded, setImageLoaded] = useState(false)
-  const [currentHeroUrl, setCurrentHeroUrl] = useState('/images/hero-car.jpg')
 
   useEffect(() => {
-    // Check for admin-set hero image (Client-only)
-    const customHero = localStorage.getItem('admin_hero_url')
-    if (customHero) {
-      setCurrentHeroUrl(customHero)
-    }
-    
-    const finalUrl = customHero || '/images/hero-car.jpg'
-
     // Preload hero image
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => setImageLoaded(true)
-    img.src = finalUrl
-  }, [])
+    img.src = heroUrl
+  }, [heroUrl])
 
   return (
     <section className="relative w-full h-screen overflow-hidden pt-20">
@@ -30,7 +34,7 @@ export function HeroSection() {
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000"
         style={{
-          backgroundImage: `url('${currentHeroUrl}')`,
+          backgroundImage: `url('${heroUrl}')`,
           backgroundPosition: 'center',
         }}
       >
@@ -56,7 +60,7 @@ export function HeroSection() {
 
           {/* Subheading */}
           <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-2xl mx-auto font-medium">
-            Experience the next generation of car marketplaces. Whether you want to browse 3,200+ verified listings or turn your vehicle into an income stream — we’ve got you covered.
+            Experience the next generation of car marketplaces. Whether you want to browse {stats?.listings.toLocaleString() || '3,200'}+ verified listings or turn your vehicle into an income stream — we’ve got you covered.
           </p>
 
           {/* CTA Buttons */}
@@ -79,15 +83,15 @@ export function HeroSection() {
           {/* Trust indicators */}
           <div className="pt-16 grid grid-cols-3 gap-12 text-white/90 border-t border-white/10 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tighter">50K+</div>
+              <div className="text-3xl font-black tracking-tighter">{stats ? formatNumber(stats.listings) : '50K+'}</div>
               <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Listings</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tighter">100K+</div>
+              <div className="text-3xl font-black tracking-tighter">{stats ? formatNumber(stats.users) : '100K+'}</div>
               <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Users</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tighter">$5B+</div>
+              <div className="text-3xl font-black tracking-tighter">{stats ? `৳${formatNumber(stats.volume)}` : '৳5B+'}</div>
               <div className="text-[10px] uppercase font-bold tracking-widest text-white/40 mt-1">Volume</div>
             </div>
           </div>

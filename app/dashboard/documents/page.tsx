@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Navbar } from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,25 +13,125 @@ import {
   Clock, 
   AlertCircle,
   ArrowLeft,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
-const existingDocs = [
-  { name: 'Driver License Front.jpg', status: 'approved', date: 'Oct 12, 2025' },
-  { name: 'Business Permit 2026.pdf', status: 'pending', date: 'Mar 10, 2026' }
-]
-
 export default function DocumentsPage() {
+  const [loading, setLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>('ID Card')
+  const [file, setFile] = useState<File | null>(null)
+  
+  const supabase = createClient()
 
-  const handleUpload = () => {
+  const fetchDocuments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('seller_documents')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setDocuments(data || [])
+    } catch (error) {
+      console.error('Failed to load documents:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchDocuments()
+  }, [])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file) {
+      toast.error("Please select a file to upload.")
+      return
+    }
+
     setIsUploading(true)
-    setTimeout(() => {
-      setIsUploading(false)
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Authentication failed")
+
+      // 1. Upload to storage bucket
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `${user.id}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('seller_documents')
+        .upload(filePath, file)
+
+      if (uploadError) throw new Error("Storage upload failed: " + uploadError.message)
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('seller_documents')
+        .getPublicUrl(filePath)
+
+      // 3. Insert record into database
+      const { error: dbError } = await supabase.from('seller_documents').insert({
+        seller_id: user.id,
+        document_type: selectedCategory,
+        file_name: file.name,
+        file_url: publicUrl,
+        status: 'pending'
+      })
+
+      if (dbError) throw new Error("Database insert failed: " + dbError.message)
+
+      // 4. Update user's verification status to pending if it was rejected or missing
+      await supabase.from('users')
+        .update({ verification_status: 'pending' })
+        .eq('id', user.id)
+        .neq('verification_status', 'approved')
+
       toast.success("Document uploaded successfully! Our team will review it within 24 hours.")
-    }, 1500)
+      setFile(null)
+      fetchDocuments()
+
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload document")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDelete = async (id: string, fileUrl: string) => {
+    try {
+      // Extract the path from the public URL if possible (optional, but good for cleanup)
+      const pathParts = fileUrl.split('/seller_documents/')
+      if (pathParts.length > 1) {
+         const path = pathParts[1]
+         await supabase.storage.from('seller_documents').remove([path])
+      }
+
+      // Delete from DB
+      const { error } = await supabase.from('seller_documents').delete().eq('id', id)
+      if (error) throw error
+
+      toast.success("Document removed.")
+      setDocuments(docs => docs.filter(d => d.id !== id))
+    } catch (error: any) {
+      toast.error("Failed to remove document: " + error.message)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -39,6 +140,14 @@ export default function DocumentsPage() {
       case 'rejected': return <Badge variant="destructive">Rejected</Badge>
       default: return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">Under Review</Badge>
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-glacier-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-rivian animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -66,29 +175,45 @@ export default function DocumentsPage() {
                       <CardDescription className="font-medium text-text-light">Select the document type and upload a clear photo or PDF.</CardDescription>
                    </CardHeader>
                    <CardContent className="px-0 space-y-8">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                          {['ID Card', 'License', 'Passport', 'Insurance'].map((type) => (
-                            <button key={type} className="p-4 rounded-2xl border-2 border-border/50 hover:border-rivian hover:bg-rivian/5 transition-all text-left group">
-                               <p className="text-xs font-black uppercase tracking-widest text-text-light group-hover:text-rivian mb-1">{type}</p>
-                               <p className="font-bold text-midnight text-sm">Select Category</p>
+                            <button 
+                              key={type} 
+                              onClick={() => setSelectedCategory(type)}
+                              type="button"
+                              className={`p-4 rounded-2xl border-2 transition-all text-left group ${
+                                selectedCategory === type 
+                                  ? 'border-rivian bg-rivian/5' 
+                                  : 'border-border/50 hover:border-rivian/50 hover:bg-glacier-white'
+                              }`}
+                            >
+                               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${selectedCategory === type ? 'text-rivian' : 'text-text-light group-hover:text-rivian/70'}`}>
+                                 {type}
+                               </p>
+                               <CheckCircle2 className={`w-4 h-4 ${selectedCategory === type ? 'text-rivian opacity-100' : 'opacity-0'}`} />
                             </button>
                          ))}
                       </div>
 
                       <div className="relative group">
-                         <div className="w-full h-48 border-2 border-dashed border-border group-hover:border-rivian/50 rounded-3xl bg-glacier-white flex flex-col items-center justify-center transition-all cursor-pointer">
+                         <div className={`w-full h-48 border-2 border-dashed rounded-3xl bg-glacier-white flex flex-col items-center justify-center transition-all cursor-pointer ${file ? 'border-rivian bg-rivian/5' : 'border-border group-hover:border-rivian/50'}`}>
                             <div className="w-12 h-12 rounded-full bg-rivian/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                <Upload className="w-6 h-6 text-rivian" />
                             </div>
-                            <p className="font-bold text-midnight">Drag & drop files here</p>
-                            <p className="text-xs text-text-light font-medium mt-1">PNG, JPG, or PDF up to 10MB</p>
+                            <p className="font-bold text-midnight">{file ? file.name : "Drag & drop files here"}</p>
+                            <p className="text-xs text-text-light font-medium mt-1">{file ? 'Ready to upload' : 'PNG, JPG, or PDF up to 10MB'}</p>
                          </div>
-                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} disabled={isUploading} />
+                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} disabled={isUploading} accept="image/*,.pdf" />
                       </div>
 
                       <div className="flex justify-end">
-                         <Button onClick={handleUpload} disabled={isUploading} className="btn-primary h-14 px-10">
-                            {isUploading ? 'Uploading...' : 'Submit for Review'}
+                         <Button onClick={handleUpload} disabled={isUploading || !file} className="btn-primary h-14 px-10">
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                Uploading...
+                              </>
+                            ) : 'Submit for Review'}
                          </Button>
                       </div>
                    </CardContent>
@@ -100,28 +225,36 @@ export default function DocumentsPage() {
                    </CardHeader>
                    <CardContent className="p-0">
                       <div className="divide-y divide-border/50">
-                         {existingDocs.map((doc, i) => (
-                            <div key={i} className="p-6 flex items-center justify-between hover:bg-glacier-white transition-colors">
-                               <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded-xl bg-black/[0.03] flex items-center justify-center">
+                         {documents.length > 0 ? documents.map((doc, i) => (
+                            <div key={i} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-glacier-white transition-colors gap-4">
+                               <div className="flex items-center gap-4 flex-1">
+                                  <div className="w-10 h-10 rounded-xl bg-black/[0.03] flex items-center justify-center flex-shrink-0">
                                      <FileText className="w-5 h-5 text-text-light" />
                                   </div>
-                                  <div>
-                                     <h4 className="font-bold text-midnight tracking-tight">{doc.name}</h4>
-                                     <p className="text-xs text-text-light font-medium flex items-center gap-2">
+                                  <div className="overflow-hidden">
+                                     <h4 className="font-bold text-midnight tracking-tight truncate">{doc.document_type}</h4>
+                                     <p className="text-xs text-text-light font-medium flex items-center gap-2 mt-0.5">
                                         <Clock className="w-3 h-3" />
-                                        Uploaded on {doc.date}
+                                        {new Date(doc.created_at).toLocaleDateString()}
                                      </p>
                                   </div>
                                </div>
-                               <div className="flex items-center gap-4">
+                               <div className="flex items-center justify-between sm:justify-end gap-4">
                                   {getStatusBadge(doc.status)}
-                                  <Button variant="ghost" className="h-9 w-9 p-0 rounded-full">
-                                     <X className="w-4 h-4 text-text-light" />
+                                  <Button 
+                                    onClick={() => handleDelete(doc.id, doc.file_url)}
+                                    variant="ghost" 
+                                    className="h-9 w-9 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                                  >
+                                     <X className="w-4 h-4" />
                                   </Button>
                                </div>
                             </div>
-                         ))}
+                         )) : (
+                            <div className="p-12 text-center text-text-light font-medium text-sm">
+                               No documents uploaded yet.
+                            </div>
+                         )}
                       </div>
                    </CardContent>
                 </Card>

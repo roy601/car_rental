@@ -1,89 +1,64 @@
 import { Navbar } from '@/components/navbar'
 import { HeroSection } from '@/components/hero-section'
 import { VINSearch } from '@/components/vin-search'
-import { FeaturesSection } from '@/components/features-section'
+import { TopSellers } from '@/components/top-sellers'
+import { FeaturedInventory } from '@/components/featured-inventory'
+import { CustomerReviews } from '@/components/customer-reviews'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+
+import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
   title: 'AutoFleet Pro - Buy, Rent, Sell Vehicles Online',
   description: 'The modern automotive marketplace. Find your perfect car, rent from owners, or list your vehicle for sale. Trusted by thousands.',
 }
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+
+  const { count: listingsCount } = await supabase
+    .from('vehicles')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active')
+
+  const { count: usersCount } = await supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('total_price')
+    .in('status', ['confirmed', 'completed'])
+
+  const volume = bookings?.reduce((acc, b) => acc + Number(b.total_price || 0), 0) || 0
+
+  const { data: heroData } = await supabase
+    .from('platform_settings')
+    .select('value')
+    .eq('id', 'hero_image')
+    .single()
+
+  const heroUrl = heroData?.value?.url || '/images/hero-car.jpg'
+
   return (
     <>
       <Navbar />
       <main className="min-h-screen bg-background">
         {/* Hero Section */}
-        <HeroSection />
+        <HeroSection stats={{ listings: listingsCount || 0, users: usersCount || 0, volume }} heroUrl={heroUrl} />
 
         {/* VIN Search Section */}
         <VINSearch />
 
-        {/* Features Section */}
-        <FeaturesSection />
+        {/* Featured Inventory Section */}
+        <FeaturedInventory />
 
-        {/* How It Works Section */}
-        <section id="how-it-works" className="py-32 px-4 sm:px-6 lg:px-8 bg-glacier-white">
-          <div className="container-max">
-            <div className="max-w-4xl mx-auto space-y-20">
-              {/* Section Header */}
-              <div className="text-center space-y-4">
-                <span className="badge-highlight">The Seamless Experience</span>
-                <h2 className="text-5xl md:text-6xl font-black text-midnight tracking-tighter">
-                  Your Journey in <br />
-                  <span className="text-rivian">Three Simple Steps.</span>
-                </h2>
-              </div>
+        {/* Top Sellers Section */}
+        <TopSellers />
 
-              {/* Steps */}
-              <div className="relative space-y-12">
-                {[
-                  {
-                    number: '01',
-                    title: 'Discover Your Ride',
-                    description: 'Access a curated collection of 3,200+ vehicles. Filter by performance, tech, and location with ease.',
-                    align: 'left'
-                  },
-                  {
-                    number: '02',
-                    title: 'Verify Everything',
-                    description: 'Review full history reports, 4K galleries, and community feedback. Total transparency, no surprises.',
-                    align: 'right'
-                  },
-                  {
-                    number: '03',
-                    title: 'Seal the Deal',
-                    description: 'Choose to buy or rent. Complete your transaction with secure escrow protection and flexible delivery.',
-                    align: 'left'
-                  },
-                ].map((step, idx) => (
-                  <div key={idx} className={`flex flex-col md:flex-row items-center gap-12 ${step.align === 'right' ? 'md:flex-row-reverse' : ''}`}>
-                    <div className="relative flex-1">
-                      <div className="absolute -top-12 -left-6 text-[180px] font-black text-black/[0.03] leading-none select-none">
-                        {step.number}
-                      </div>
-                      <div className="relative z-10 card border-none shadow-2xl shadow-black/5 bg-white p-10 md:p-12 hover:scale-[1.02] transition-transform">
-                        <h3 className="text-3xl font-black text-midnight tracking-tighter mb-4">
-                          {step.title}
-                        </h3>
-                        <p className="text-lg text-text-secondary font-medium leading-relaxed">
-                          {step.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="hidden md:flex flex-1 justify-center">
-                       <div className="w-16 h-16 rounded-3xl bg-rivian/10 flex items-center justify-center">
-                          <div className="w-4 h-4 rounded-full bg-rivian animate-pulse" />
-                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Customer Reviews Section */}
+        <CustomerReviews />
 
         {/* CTA Section */}
         <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-rivian to-midnight text-white overflow-hidden relative">

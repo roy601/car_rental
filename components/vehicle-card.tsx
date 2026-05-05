@@ -104,7 +104,7 @@ export function VehicleCard({
             {listingType === 'rent' && dailyRentalPrice && (
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold font-mono text-text-primary">
-                  ${dailyRentalPrice}
+                  ৳{dailyRentalPrice}
                 </span>
                 <span className="text-sm text-text-secondary">/day</span>
               </div>
@@ -113,7 +113,7 @@ export function VehicleCard({
             {listingType === 'sale' && (
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold font-mono text-text-primary">
-                  ${price.toLocaleString()}
+                  ৳{price.toLocaleString()}
                 </span>
               </div>
             )}
@@ -122,14 +122,14 @@ export function VehicleCard({
               <div className="flex items-end justify-between">
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl font-bold font-mono text-text-primary">
-                    ${dailyRentalPrice}
+                    ৳{dailyRentalPrice}
                   </span>
                   <span className="text-xs text-text-secondary">/day</span>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-text-light uppercase tracking-wider leading-none mb-0.5">or buy</p>
                   <p className="text-sm font-semibold font-mono text-text-primary">
-                    ${price.toLocaleString()}
+                    ৳{price.toLocaleString()}
                   </p>
                 </div>
               </div>
