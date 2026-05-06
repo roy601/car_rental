@@ -54,7 +54,7 @@ export default function AdminOverview() {
   }
 
   const statCards = [
-    { label: 'Total Revenue', value: `$${stats.revenue.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+    { label: 'Total Revenue', value: `৳${stats.revenue.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
     { label: 'Total Users', value: stats.users, icon: Users, color: 'text-rivian', bg: 'bg-rivian/5', border: 'border-rivian/10' },
     { label: 'Active Listings', value: stats.listings, icon: Car, color: 'text-compass', bg: 'bg-compass/5', border: 'border-compass/10' },
     { label: 'Pending Sellers', value: stats.pendingSellers, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
@@ -113,7 +113,7 @@ export default function AdminOverview() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase ${statusColor[b.status] || 'text-text-light bg-glacier-white'}`}>{b.status}</span>
-                  <p className="text-midnight font-black text-sm">${b.total_price?.toLocaleString() || 0}</p>
+                  <p className="text-midnight font-black text-sm">৳{b.total_price?.toLocaleString() || 0}</p>
                 </div>
               </div>
             ))}

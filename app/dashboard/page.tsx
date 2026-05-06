@@ -338,7 +338,7 @@ export default function SellerDashboard() {
               {[
                 { label: 'Active Rentals', value: stats.activeRentals.toString(), sub: 'Currently using', icon: Clock, color: 'text-rivian' },
                 { label: 'Total Bookings', value: buyerBookings.length.toString(), sub: 'All time', icon: Calendar, color: 'text-compass' },
-                { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, sub: 'Lifetime spending', icon: CreditCard, color: 'text-indigo-500' },
+                { label: 'Total Spent', value: `৳${stats.totalSpent.toLocaleString()}`, sub: 'Lifetime spending', icon: CreditCard, color: 'text-indigo-500' },
                 { label: 'Account Status', value: 'Active', sub: userProfile?.is_verified ? 'Verified' : 'Basic', icon: ShieldCheck, color: 'text-emerald-500' },
               ].map((stat, i) => (
                 <Card key={i} className="border-none shadow-xl shadow-black/5 bg-white overflow-hidden group hover:scale-[1.02] transition-transform">
@@ -359,8 +359,8 @@ export default function SellerDashboard() {
             // SELLER / UNIFIED STATS
             <>
               {[
-                { label: 'Total Earned', value: `$${stats.totalRevenue.toLocaleString()}`, sub: 'As Seller', icon: TrendingUp, color: 'text-emerald-500' },
-                { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, sub: 'As Buyer', icon: CreditCard, color: 'text-indigo-500' },
+                { label: 'Total Earned', value: `৳${stats.totalRevenue.toLocaleString()}`, sub: 'As Seller', icon: TrendingUp, color: 'text-emerald-500' },
+                { label: 'Total Spent', value: `৳${stats.totalSpent.toLocaleString()}`, sub: 'As Buyer', icon: CreditCard, color: 'text-indigo-500' },
                 { label: 'Active Rentals', value: stats.activeRentals.toString(), sub: 'Current Bookings', icon: Clock, color: 'text-compass' },
                 { label: 'My Listings', value: stats.activeListings.toString(), sub: 'In Marketplace', icon: Car, color: 'text-rivian' },
               ].map((stat, i) => (
@@ -417,7 +417,7 @@ export default function SellerDashboard() {
                              style={{ height: `${day.height}%` }}
                            >
                               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-midnight text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold whitespace-nowrap z-10">
-                                 E: ${day.revenue.toLocaleString()}
+                                 E: ৳{day.revenue.toLocaleString()}
                               </div>
                            </div>
                          )}
@@ -426,7 +426,7 @@ export default function SellerDashboard() {
                            style={{ height: `${day.spendHeight}%` }}
                          >
                             <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-midnight text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold whitespace-nowrap z-10">
-                               S: ${day.spending.toLocaleString()}
+                               S: ৳{day.spending.toLocaleString()}
                             </div>
                          </div>
                       </div>
@@ -457,7 +457,7 @@ export default function SellerDashboard() {
                           </div>
                         </Link>
                         <div className="text-right">
-                           <div className="text-lg font-black tracking-tighter text-midnight">${booking.total_price}</div>
+                           <div className="text-lg font-black tracking-tighter text-midnight">৳{booking.total_price}</div>
                            <Badge variant="outline" className="text-[10px] uppercase">{booking.status}</Badge>
                         </div>
                       </div>
@@ -491,7 +491,7 @@ export default function SellerDashboard() {
                                 </Link>
                                 <div className="flex items-center gap-3">
                                     <div className="text-right mr-4 hidden md:block">
-                                        <div className="text-lg font-black tracking-tighter text-midnight">${car.revenue.toLocaleString()}</div>
+                                        <div className="text-lg font-black tracking-tighter text-midnight">৳{car.revenue.toLocaleString()}</div>
                                         <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Revenue</p>
                                     </div>
                                     <Button asChild variant="outline" size="sm" className="h-9 px-4 font-bold border-border/50 hover:bg-white hover:text-rivian">

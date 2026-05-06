@@ -1,11 +1,11 @@
+import Link from 'next/link'
 import { Navbar } from '@/components/navbar'
 import { HeroSection } from '@/components/hero-section'
 import { VINSearch } from '@/components/vin-search'
 import { TopSellers } from '@/components/top-sellers'
 import { FeaturedInventory } from '@/components/featured-inventory'
 import { CustomerReviews } from '@/components/customer-reviews'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { SellerCTASection } from '@/components/seller-cta-section'
 
 import { createClient } from '@/lib/supabase/server'
 
@@ -61,32 +61,7 @@ export default async function Home() {
         <CustomerReviews />
 
         {/* CTA Section */}
-        <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-rivian to-midnight text-white overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-compass/10 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="container-max relative z-10">
-            <div className="max-w-4xl mx-auto text-center space-y-10">
-              <h2 className="text-5xl md:text-7xl font-black tracking-tighter">
-                Ready to Find Your<br />
-                <span className="text-compass">Perfect Vehicle?</span>
-              </h2>
-              <p className="text-xl text-white/60 max-w-2xl mx-auto font-medium">
-                Join 100,000+ satisfied customers who have found their ideal car on AutoFleet Pro. Secure, fast, and transparent.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-5 justify-center pt-4">
-                <Button asChild className="btn-accent h-14 px-12 text-base">
-                  <Link href="/marketplace">
-                    Start Browsing
-                  </Link>
-                </Button>
-                <Button asChild className="btn-secondary h-14 px-12 text-base bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20">
-                  <Link href="/auth/signup?type=seller">
-                    Become a Seller
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
+        <SellerCTASection />
 
         {/* Footer */}
         <footer className="bg-white border-t border-border py-20 px-4 sm:px-6 lg:px-8">

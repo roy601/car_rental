@@ -15,7 +15,8 @@ import {
   Loader2,
   Calendar,
   CreditCard,
-  MapPin
+  MapPin,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -155,10 +156,18 @@ export default function MyBookingsPage() {
                           </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-2">
+                         <div className="flex justify-end gap-3 pt-2">
                            {booking.payment_status === 'unpaid' && (
                               <Button asChild className="btn-primary h-11 px-6">
                                 <Link href={`/payment/${booking.id}`}>Complete Payment</Link>
+                              </Button>
+                           )}
+                           {(booking.status === 'confirmed' || booking.status === 'completed') && (
+                              <Button asChild variant="outline" className="h-11 px-6 flex items-center gap-2">
+                                <Link href={`/invoice/${booking.id}`}>
+                                  <FileText className="w-4 h-4" />
+                                  Invoice
+                                </Link>
                               </Button>
                            )}
                            <Button asChild variant="outline" className="h-11 px-6">

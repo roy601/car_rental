@@ -16,7 +16,8 @@ import {
   Car,
   TrendingUp,
   Zap,
-  Phone
+  Phone,
+  Mail
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -157,6 +158,16 @@ export default function SellerProfilePage({ params }: { params: Promise<{ id: st
                          <div>
                             <p className="text-xs font-bold text-rivian/70 uppercase tracking-wider">Phone</p>
                             <p className="font-black text-midnight">{seller.phone}</p>
+                         </div>
+                      </div>
+                    )}
+                    
+                    {seller.email && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100">
+                         <Mail className="w-5 h-5 text-emerald-500" />
+                         <div>
+                            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Email</p>
+                            <p className="font-black text-midnight">{seller.email}</p>
                          </div>
                       </div>
                     )}

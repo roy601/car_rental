@@ -2,10 +2,10 @@
 
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
 
-export default function Page() {
+function SignUpForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -15,7 +15,20 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showRepeat, setShowRepeat] = useState(false)
+  const [fromListVehicle, setFromListVehicle] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const type = searchParams.get('type')
+    const intent = searchParams.get('intent')
+    if (type === 'seller') {
+      setUserType('seller')
+    }
+    if (intent === 'list-vehicle') {
+      setFromListVehicle(true)
+    }
+  }, [searchParams])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,10 +175,36 @@ export default function Page() {
         <div style={{ width:'100%', maxWidth:'430px' }}>
           <div style={{ background:'#fff', borderRadius:'18px', boxShadow:'0 4px 40px rgba(0,0,0,0.08)', border:'1px solid #ebebeb', padding:'36px' }}>
 
+            {/* Contextual Banner — shown when arriving from "List Your Vehicle" */}
+            {fromListVehicle && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                padding: '14px 16px', borderRadius: '12px', marginBottom: '20px',
+                background: 'linear-gradient(135deg, rgba(0,79,67,0.08), rgba(0,105,85,0.05))',
+                border: '1.5px solid rgba(0,79,67,0.2)',
+              }}>
+                <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0 }}>🚗</span>
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: '#004F43', margin: 0 }}>
+                    You&apos;re one step away from listing your vehicle!
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#666', margin: '3px 0 0', lineHeight: 1.5 }}>
+                    Create a free seller account to start earning. It only takes a minute.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div style={{ marginBottom:'24px' }}>
-              <h2 style={{ fontSize:'24px', fontWeight:800, color:'#151515', marginBottom:'6px' }}>Create your account</h2>
-              <p style={{ fontSize:'14px', color:'#888' }}>Join thousands of drivers & owners on AutoFleet Pro</p>
+              <h2 style={{ fontSize:'24px', fontWeight:800, color:'#151515', marginBottom:'6px' }}>
+                {fromListVehicle ? 'Create your seller account' : 'Create your account'}
+              </h2>
+              <p style={{ fontSize:'14px', color:'#888' }}>
+                {userType === 'seller'
+                  ? 'Start listing your vehicles and earning income today.'
+                  : 'Join thousands of drivers & owners on AutoFleet Pro'}
+              </p>
             </div>
 
             {/* Account Type Toggle */}
@@ -342,5 +381,17 @@ export default function Page() {
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
       `}</style>
     </main>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <main style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", background: '#F9F9F9' }}>
+        <div style={{ color: '#888', fontSize: '14px' }}>Loading...</div>
+      </main>
+    }>
+      <SignUpForm />
+    </Suspense>
   )
 }

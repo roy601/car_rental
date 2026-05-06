@@ -22,7 +22,8 @@ import {
   ArrowLeft,
   Loader2,
   Printer,
-  CreditCard
+  CreditCard,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -94,6 +95,41 @@ export default function BookingsPage() {
       setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updateData } : b))
     } catch (error: any) {
       toast.error("Failed to update status: " + error.message)
+    }
+  }
+
+  const handleComplete = async (booking: any) => {
+    try {
+      const now = new Date()
+      const endDate = new Date(booking.end_date)
+      let lateFees = 0
+      
+      // Calculate late fees if it's a rental and past the end date
+      if (now > endDate && booking.booking_type === 'rental') {
+        const diffMs = now.getTime() - endDate.getTime()
+        const diffHours = Math.ceil(diffMs / (1000 * 60 * 60))
+        lateFees = diffHours * 1000 // ৳1000 per hour
+      }
+
+      const updateData: any = { 
+        status: 'completed',
+        total_price: Number(booking.total_price) + lateFees
+      }
+      
+      if (lateFees > 0) {
+        updateData.notes = (booking.notes || '') + `\n[LATE FEE APPLIED: ৳${lateFees}]`
+      }
+
+      const { error } = await supabase.from('bookings').update(updateData).eq('id', booking.id)
+      if (error) throw error
+
+      toast.success(`Rental completed! ${lateFees > 0 ? `Added ৳${lateFees} late fee.` : ''}`)
+      setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, ...updateData } : b))
+      
+      // Also mark vehicle as active again if it was a rental
+      await supabase.from('vehicles').update({ status: 'active' }).eq('id', booking.vehicle_id)
+    } catch (error: any) {
+      toast.error("Failed to complete rental: " + error.message)
     }
   }
 
@@ -192,7 +228,7 @@ export default function BookingsPage() {
                  </div>
                  <div>
                     <p className="text-xs font-bold text-text-light uppercase tracking-widest">Total Value</p>
-                    <p className="text-2xl font-black text-midnight">${stats.totalValue.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-midnight">৳{stats.totalValue.toLocaleString()}</p>
                  </div>
               </CardContent>
            </Card>
@@ -248,7 +284,7 @@ export default function BookingsPage() {
                              {booking.created_at ? new Date(booking.created_at).toLocaleDateString() : 'N/A'}
                           </TableCell>
                           <TableCell className="font-black text-midnight">
-                             ${Number(booking.total_price).toLocaleString()}
+                             ৳{Number(booking.total_price).toLocaleString()}
                           </TableCell>
                           <TableCell className="text-right px-6 print:hidden">
                              {booking.status === 'pending' && (
@@ -260,6 +296,25 @@ export default function BookingsPage() {
                                       <XCircle className="h-5 w-5" />
                                    </Button>
                                 </div>
+                             )}
+                             {booking.status === 'confirmed' && (
+                                <div className="flex items-center justify-end gap-2">
+                                   <Button onClick={() => handleComplete(booking)} variant="outline" size="sm" className="h-8 px-3 border-emerald-500/20 text-emerald-600 hover:bg-emerald-50" title="Mark as Completed">
+                                      Complete Rental
+                                   </Button>
+                                   <Button asChild variant="ghost" className="h-9 w-9 p-0 hover:bg-rivian/5 hover:text-rivian" title="View Invoice">
+                                      <Link href={`/invoice/${booking.id}`}>
+                                         <FileText className="h-5 w-5" />
+                                      </Link>
+                                   </Button>
+                                </div>
+                             )}
+                             {booking.status === 'completed' && (
+                                <Button asChild variant="ghost" className="h-9 w-9 p-0 hover:bg-rivian/5 hover:text-rivian" title="View Invoice">
+                                   <Link href={`/invoice/${booking.id}`}>
+                                      <FileText className="h-5 w-5" />
+                                   </Link>
+                                </Button>
                              )}
                           </TableCell>
                        </TableRow>

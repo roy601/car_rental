@@ -10,17 +10,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Calendar,
-  ShieldCheck,
-  CreditCard,
-  FileText,
-  ArrowLeft,
-  Loader2,
-  CheckCircle2,
-  Car,
-  MapPin,
-  Clock
+   Clock,
+   Calendar as CalendarIcon,
+   Loader2,
+   ShieldCheck,
+   CreditCard,
+   FileText,
+   ArrowLeft,
+   CheckCircle2,
+   Car,
+   MapPin
 } from 'lucide-react'
+import { Calendar as CalendarUI } from '@/components/ui/calendar'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
@@ -50,6 +51,8 @@ export default function CheckoutPage({ params }: BookingProps) {
     termsAgreed: false,
     cancellationAgreed: false,
   })
+
+  const [bookedDates, setBookedDates] = useState<any[]>([])
 
   const isBuying = type === 'buy'
   const isRenting = type === 'rent'
@@ -81,6 +84,17 @@ export default function CheckoutPage({ params }: BookingProps) {
         }
 
         setVehicle(vehicleData)
+
+        // Fetch reserved dates
+        const { data: bookingsData } = await supabase
+          .from('bookings')
+          .select('start_date, end_date')
+          .eq('vehicle_id', id)
+          .not('status', 'eq', 'cancelled')
+          
+          if (bookingsData) {
+            setBookedDates(bookingsData)
+          }
       } catch (err: any) {
         toast.error(err.message || "Failed to load vehicle")
         router.push('/marketplace')
@@ -145,6 +159,22 @@ export default function CheckoutPage({ params }: BookingProps) {
 
     setIsSubmitting(true)
     try {
+      // ── Availability Check ────────────────────────────────
+      if (isRenting) {
+        const { data: conflicts, error: conflictError } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('vehicle_id', id)
+          .not('status', 'eq', 'cancelled')
+          .lte('start_date', formData.endDate)
+          .gte('end_date', formData.startDate)
+
+        if (conflictError) throw conflictError
+        if (conflicts && conflicts.length > 0) {
+          throw new Error("Vehicle is already booked for these dates. Please choose different dates.")
+        }
+      }
+
       const { data: insertData, error: insertError } = await supabase.from('bookings').insert(payload).select()
 
       if (insertError) {
@@ -197,21 +227,21 @@ export default function CheckoutPage({ params }: BookingProps) {
               <div className="bg-glacier-white rounded-2xl p-6 border border-border/50 text-left space-y-3">
                 <div className="flex justify-between text-sm font-medium text-text-secondary">
                   <span>{isRenting ? `${pricing.days} days rental` : 'Vehicle price'}</span>
-                  <span>${pricing.basePrice.toLocaleString()}</span>
+                  <span>৳{pricing.basePrice.toLocaleString()}</span>
                 </div>
                 {'insurance' in pricing && pricing.insurance > 0 && (
                   <div className="flex justify-between text-sm font-medium text-text-secondary">
                     <span>Damage Waiver</span>
-                    <span>${pricing.insurance.toLocaleString()}</span>
+                    <span>৳{pricing.insurance.toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-medium text-text-secondary">
                   <span>Tax & Fees (8%)</span>
-                  <span>${pricing.tax.toLocaleString()}</span>
+                  <span>৳{pricing.tax.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-lg font-black text-midnight border-t border-border/50 pt-3">
                   <span>Total</span>
-                  <span>${pricing.total.toLocaleString()}</span>
+                  <span>৳{pricing.total.toLocaleString()}</span>
                 </div>
               </div>
             )}
@@ -277,8 +307,8 @@ export default function CheckoutPage({ params }: BookingProps) {
                     </div>
                     <p className="text-rivian font-black mt-2">
                       {isBuying
-                        ? `$${vehicle?.price?.toLocaleString()} purchase price`
-                        : `$${vehicle?.daily_rental_price}/day rental rate`}
+                        ? `৳${vehicle?.price?.toLocaleString()} purchase price`
+                        : `৳${vehicle?.daily_rental_price}/day rental rate`}
                     </p>
                   </div>
                 </CardContent>
@@ -290,7 +320,7 @@ export default function CheckoutPage({ params }: BookingProps) {
                   <CardContent className="p-8 space-y-6">
                     <div className="flex items-center gap-3 pb-6 border-b border-border/50">
                       <div className="w-10 h-10 rounded-xl bg-rivian/10 flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-rivian" />
+                        <CalendarIcon className="w-5 h-5 text-rivian" />
                       </div>
                       <div>
                         <p className="font-black text-midnight">Rental Period</p>
@@ -298,60 +328,93 @@ export default function CheckoutPage({ params }: BookingProps) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Pick-up Date</Label>
-                        <Input
-                          type="date"
-                          className="h-14 font-bold border-border/50"
-                          value={formData.startDate}
-                          min={today}
-                          onChange={e => setFormData({ ...formData, startDate: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase tracking-widest text-text-light">Return Date</Label>
-                        <Input
-                          type="date"
-                          className="h-14 font-bold border-border/50"
-                          value={formData.endDate}
-                          min={formData.startDate || today}
-                          onChange={e => setFormData({ ...formData, endDate: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
+                    <div className="flex flex-col xl:flex-row gap-10">
+                       <div className="flex-1 space-y-8">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-black uppercase tracking-widest text-text-light">Pick-up Date</Label>
+                              <Input
+                                type="date"
+                                className="h-14 font-bold border-border/50"
+                                value={formData.startDate}
+                                min={today}
+                                onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-black uppercase tracking-widest text-text-light">Return Date</Label>
+                              <Input
+                                type="date"
+                                className="h-14 font-bold border-border/50"
+                                value={formData.endDate}
+                                min={formData.startDate || today}
+                                onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                                required
+                              />
+                            </div>
+                          </div>
 
-                    {/* Duration badge */}
-                    {pricing && 'days' in pricing && pricing.days > 0 && (
-                      <div className="flex items-center gap-2 bg-rivian/5 border border-rivian/20 rounded-xl px-4 py-3">
-                        <Clock className="w-4 h-4 text-rivian" />
-                        <p className="text-sm font-bold text-rivian">
-                          {pricing.days} day{pricing.days > 1 ? 's' : ''} rental — ${pricing.basePrice.toLocaleString()} base price
-                        </p>
-                      </div>
-                    )}
+                          {/* Duration badge */}
+                          {pricing && 'days' in pricing && pricing.days > 0 && (
+                            <div className="flex items-center gap-2 bg-rivian/5 border border-rivian/20 rounded-xl px-4 py-3">
+                              <Clock className="w-4 h-4 text-rivian" />
+                              <p className="text-sm font-bold text-rivian">
+                                {pricing.days} day{pricing.days > 1 ? 's' : ''} rental — ৳{pricing.basePrice.toLocaleString()} base price
+                              </p>
+                            </div>
+                          )}
 
-                    {/* Damage Waiver */}
-                    <div
-                      onClick={() => setFormData(f => ({ ...f, insurance: !f.insurance }))}
-                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                        formData.insurance ? 'border-rivian bg-rivian/5' : 'border-border/50 hover:border-rivian/30'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                        formData.insurance ? 'border-rivian bg-rivian' : 'border-border'
-                      }`}>
-                        {formData.insurance && <CheckCircle2 className="w-4 h-4 text-white" />}
-                      </div>
-                      <div>
-                        <p className="font-bold text-midnight">Add Damage Waiver</p>
-                        <p className="text-xs text-text-secondary font-medium">Protects you from unexpected damage costs (10% of rental price)</p>
-                      </div>
-                      {pricing && 'insurance' in pricing && pricing.insurance > 0 && (
-                        <span className="ml-auto font-black text-midnight">${pricing.insurance}</span>
-                      )}
+                          {/* Damage Waiver */}
+                          <div
+                            onClick={() => setFormData(f => ({ ...f, insurance: !f.insurance }))}
+                            className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                              formData.insurance ? 'border-rivian bg-rivian/5' : 'border-border/50 hover:border-rivian/30'
+                            }`}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              formData.insurance ? 'border-rivian bg-rivian' : 'border-border'
+                            }`}>
+                              {formData.insurance && <CheckCircle2 className="w-4 h-4 text-white" />}
+                            </div>
+                            <div>
+                              <p className="font-bold text-midnight">Add Damage Waiver</p>
+                              <p className="text-xs text-text-secondary font-medium">Protects you from unexpected damage costs (10% of rental price)</p>
+                            </div>
+                            {pricing && 'insurance' in pricing && pricing.insurance > 0 && (
+                              <span className="ml-auto font-black text-midnight">৳{pricing.insurance}</span>
+                            )}
+                          </div>
+                       </div>
+
+                       <div className="w-full xl:w-72 space-y-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-text-light">Availability Reference</p>
+                          <div className="bg-glacier-white rounded-2xl border border-border/50 p-2 overflow-hidden shadow-inner">
+                             <CalendarUI
+                               mode="multiple"
+                               modifiers={{
+                                 booked: bookedDates.map(b => {
+                                   const start = b.start_date.includes('T') ? new Date(b.start_date) : new Date(b.start_date + 'T00:00:00')
+                                   const end = b.end_date.includes('T') ? new Date(b.end_date) : new Date(b.end_date + 'T00:00:00')
+                                   return { from: start, to: end }
+                                 })
+                               }}
+                               modifiersClassNames={{
+                                 booked: "bg-rivian/10 text-rivian font-black line-through"
+                               }}
+                               disabled={bookedDates.map(b => {
+                                 const start = b.start_date.includes('T') ? new Date(b.start_date) : new Date(b.start_date + 'T00:00:00')
+                                 const end = b.end_date.includes('T') ? new Date(b.end_date) : new Date(b.end_date + 'T00:00:00')
+                                 return { from: start, to: end }
+                               })}
+                               className="scale-[0.9] origin-top"
+                             />
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-text-light px-2">
+                             <div className="w-2 h-2 rounded-full bg-slate-200" />
+                             <span>Grey dates are already booked</span>
+                          </div>
+                       </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -412,7 +475,7 @@ export default function CheckoutPage({ params }: BookingProps) {
                 ) : (
                   <>
                     {isBuying ? 'Submit Purchase Request' : 'Confirm Rental Booking'}
-                    {pricing ? ` — $${pricing.total.toLocaleString()}` : ''}
+                    {pricing ? ` — ৳${pricing.total.toLocaleString()}` : ''}
                   </>
                 )}
               </Button>
@@ -430,29 +493,29 @@ export default function CheckoutPage({ params }: BookingProps) {
                     <div className="space-y-4">
                       {isRenting && 'days' in pricing && (
                         <div className="flex justify-between text-sm text-text-secondary font-medium">
-                          <span>{pricing.days} days × ${pricing.dailyRate}/day</span>
-                          <span>${pricing.basePrice.toLocaleString()}</span>
+                          <span>{pricing.days} days × ৳{pricing.dailyRate}/day</span>
+                          <span>৳{pricing.basePrice.toLocaleString()}</span>
                         </div>
                       )}
                       {isBuying && (
                         <div className="flex justify-between text-sm text-text-secondary font-medium">
                           <span>Vehicle Price</span>
-                          <span>${pricing.basePrice.toLocaleString()}</span>
+                          <span>৳{pricing.basePrice.toLocaleString()}</span>
                         </div>
                       )}
                       {'insurance' in pricing && pricing.insurance > 0 && (
                         <div className="flex justify-between text-sm text-text-secondary font-medium">
                           <span>Damage Waiver</span>
-                          <span>${pricing.insurance.toLocaleString()}</span>
+                          <span>৳{pricing.insurance.toLocaleString()}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-sm text-text-secondary font-medium">
                         <span>Tax & Fees (8%)</span>
-                        <span>${pricing.tax.toLocaleString()}</span>
+                        <span>৳{pricing.tax.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-xl font-black text-midnight border-t border-border/50 pt-4">
                         <span>Total</span>
-                        <span className="text-rivian">${pricing.total.toLocaleString()}</span>
+                        <span className="text-rivian">৳{pricing.total.toLocaleString()}</span>
                       </div>
                     </div>
                   ) : (
